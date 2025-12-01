@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark"> <head>
+    <meta charset="UTF-8">
+    <title>Meus Projetos - CTManager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-screen overflow-hidden flex flex-col transition-colors duration-300">
+
+    <div id="app-modal" class="fixed inset-0 z-[200] hidden overflow-y-auto" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+            <div class="inline-block align-bottom bg-white dark:bg-slate-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full border dark:border-slate-700">
+                <div class="bg-white dark:bg-slate-800 px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div id="app-modal-icon" class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-700 sm:mx-0 sm:h-10 sm:w-10">
+                            <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="" /></svg>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-slate-900 dark:text-white" id="app-modal-title"></h3>
+                            <div class="mt-2"><p class="text-sm text-slate-500 dark:text-slate-400" id="app-modal-message"></p></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t dark:border-slate-700">
+                    <button type="button" id="app-modal-confirm" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">Confirmar</button>
+                    <button type="button" id="app-modal-cancel" class="mt-3 w-full inline-flex justify-center rounded-md border border-slate-300 dark:border-slate-600 shadow-sm px-4 py-2 bg-white dark:bg-slate-700 text-base font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm hidden">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="app-toast" class="fixed bottom-5 right-5 z-[250] hidden transition-all duration-300 transform translate-y-10 opacity-0">
+        <div class="rounded-lg shadow-lg p-4 flex items-center gap-3 bg-slate-800 dark:bg-slate-700 border dark:border-slate-600 text-white">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+            <p class="font-bold text-sm">Ação realizada!</p>
+        </div>
+    </div>
+
+    <nav class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 py-3 px-6 flex justify-between items-center shrink-0 z-20 transition-colors duration-300">
+        <a href="index.html" class="flex items-center gap-2">
+            <span class="text-xl font-bold text-blue-600 dark:text-blue-400">CTManager</span>
+            <span class="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 px-2 py-1 rounded-full">Histórico</span>
+        </a>
+        <div class="flex items-center gap-4">
+            <a href="index.html" class="text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 text-sm font-medium flex items-center gap-1"><i data-lucide="plus-circle" class="w-4 h-4"></i> Novo Projeto</a>
+            <span id="user-display" class="font-bold text-slate-700 dark:text-slate-200 text-sm"></span>
+            <button id="btn-logout" class="text-red-500 dark:text-red-400 text-sm hover:underline">Sair</button>
+        </div>
+    </nav>
+
+    <div class="flex flex-1 overflow-hidden">
+        <aside class="w-full md:w-80 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col z-10 transition-colors duration-300">
+            <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                <h2 class="font-bold text-slate-700 dark:text-slate-200">Seus Projetos</h2>
+            </div>
+            <div id="chats-list" class="flex-1 overflow-y-auto p-2 space-y-2"></div>
+        </aside>
+
+        <main class="flex-1 flex flex-col bg-slate-100 dark:bg-slate-900 relative transition-colors duration-300">
+            <div id="chat-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500">
+                <i data-lucide="message-square" class="w-16 h-16 mb-4 opacity-50"></i>
+                <p class="text-lg font-medium">Selecione um projeto</p>
+            </div>
+            <div id="chat-content" class="hidden flex-1 flex flex-col h-full">
+                <header class="bg-white dark:bg-slate-800 p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center shadow-sm z-10 gap-4 transition-colors duration-300">
+                    <div class="flex-1 flex flex-col">
+                        <input type="text" id="chat-title-input" class="font-bold text-slate-800 dark:text-white text-lg w-full bg-transparent border border-transparent hover:border-slate-300 dark:hover:border-slate-600 rounded px-2 focus:bg-white dark:focus:bg-slate-700 focus:border-blue-500 outline-none transition disabled:opacity-50" value="Carregando..." disabled>
+                        <p id="chat-id-display" class="text-xs text-slate-400 dark:text-slate-500 px-2 mt-1">ID: --</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="btn-edit-title" class="p-2 text-slate-400 dark:text-slate-500 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition hidden" title="Renomear"><i data-lucide="edit-3" class="w-5 h-5"></i></button>
+                        <button id="btn-delete-chat" class="p-2 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition hidden" title="Excluir"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    </div>
+                </header>
+                <div id="messages-area" class="flex-1 overflow-y-auto p-6 space-y-8 pb-20"></div>
+            </div>
+        </main>
+    </div>
+
+    <script type="module" src="js/chats.js"></script>
+    <script>document.addEventListener('DOMContentLoaded', () => { if(window.lucide) lucide.createIcons(); });</script>
+</body>
+</html>

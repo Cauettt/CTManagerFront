@@ -1,139 +1,213 @@
 document.addEventListener('DOMContentLoaded', () => {
     
-    // --- 1. SELEÇÃO DE ELEMENTOS DO DOM ---
-    const elements = {
+    // --- CONFIGURAÇÕES ---
+    const API_URL = "http://localhost:8080";
+    const colorThief = new ColorThief();
+    
+    // --- ESTADO GLOBAL ---
+    let currentUser = JSON.parse(localStorage.getItem('ctmanager_user'));
+    let selectedFile = null;
+    let currentPalette = [];
+
+    // --- ELEMENTOS ---
+    const ui = {
+        loginModal: document.getElementById('login-modal'),
+        btnCloseModal: document.getElementById('btn-close-modal'),
+        loginForm: document.getElementById('login-form'),
+        navBtnLogin: document.getElementById('nav-btn-login'),
+        loggedArea: document.getElementById('logged-area'),
+        userDisplay: document.getElementById('user-display'),
+        loginError: document.getElementById('login-error'),
         fileInput: document.getElementById('file-input'),
-        uploadPlaceholder: document.getElementById('upload-placeholder'),
-        previewContainer: document.getElementById('preview-container'),
-        imagePreview: document.getElementById('image-preview'),
+        preview: document.getElementById('image-preview'),
+        placeholder: document.getElementById('upload-placeholder'),
         actionContainer: document.getElementById('action-container'),
+        btnProcess: document.getElementById('btn-process'),
         resultsSection: document.getElementById('results-section'),
         paletteGrid: document.getElementById('palette-grid'),
-        btnProcess: document.getElementById('btn-process'),
-        btnText: document.getElementById('btn-text'),
-        loadingSpinner: document.getElementById('loading-spinner')
+        btnSave: document.getElementById('btn-save-backend'),
+        btnLogout: document.getElementById('btn-logout')
     };
 
-    let selectedFile = null;
-    // Inicializa a biblioteca ColorThief
-    const colorThief = new ColorThief();
+    // --- 1. GERENCIAMENTO DE UI E LOGIN ---
+    
+    function updateAuthUI() {
+        if (currentUser) {
+            ui.navBtnLogin.classList.add('hidden');
+            ui.loggedArea.classList.remove('hidden');
+            // DTO só retorna email, então usamos o email ou parte dele como nome
+            const nomeExibicao = currentUser.nome || currentUser.email.split('@')[0];
+            ui.userDisplay.innerText = `Olá, ${nomeExibicao}`;
+        } else {
+            ui.navBtnLogin.classList.remove('hidden');
+            ui.loggedArea.classList.add('hidden');
+        }
+    }
 
-    // --- 2. EVENT LISTENERS ---
-    elements.fileInput.addEventListener('change', handleFileSelect);
-    elements.btnProcess.addEventListener('click', processImage);
+    function showLoginModal() { ui.loginModal.classList.remove('hidden'); }
+    function hideLoginModal() { ui.loginModal.classList.add('hidden'); ui.loginError.classList.add('hidden'); }
 
+    ui.navBtnLogin.addEventListener('click', showLoginModal);
+    ui.btnCloseModal.addEventListener('click', hideLoginModal);
 
-    // --- 3. FUNÇÕES DE LÓGICA ---
+    ui.loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const senha = document.getElementById('password').value;
+        const btnLogin = document.getElementById('btn-submit-login');
 
-    function handleFileSelect(e) {
+        try {
+            btnLogin.innerText = "Entrando...";
+            btnLogin.disabled = true;
+
+            // Envia 'senha' pois sua entidade Usuario usa 'senha'
+            const response = await fetch(`${API_URL}/usuario/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, senha: senha }) 
+            });
+
+            if (response.ok) {
+                const user = await response.json();
+                localStorage.setItem('ctmanager_user', JSON.stringify(user));
+                currentUser = user;
+                
+                updateAuthUI();
+                hideLoginModal();
+                alert(`Login realizado com sucesso!`);
+            } else {
+                ui.loginError.classList.remove('hidden');
+            }
+        } catch (error) {
+            console.error(error);
+            ui.loginError.innerText = "Erro ao conectar com o servidor.";
+            ui.loginError.classList.remove('hidden');
+        } finally {
+            btnLogin.innerText = "Entrar";
+            btnLogin.disabled = false;
+        }
+    });
+
+    ui.btnLogout.addEventListener('click', () => {
+        localStorage.removeItem('ctmanager_user');
+        currentUser = null;
+        updateAuthUI();
+        window.location.reload();
+    });
+
+    // --- 2. LÓGICA DE IMAGEM ---
+    ui.fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) {
             selectedFile = file;
             const reader = new FileReader();
-            
-            reader.onload = function(event) {
-                elements.imagePreview.src = event.target.result;
-                elements.uploadPlaceholder.classList.add('hidden');
-                elements.previewContainer.classList.remove('hidden');
-                elements.actionContainer.classList.remove('hidden');
-                elements.resultsSection.classList.add('hidden');
-            }
-            
+            reader.onload = (event) => {
+                ui.preview.src = event.target.result;
+                ui.preview.classList.remove('hidden');
+                ui.placeholder.classList.add('hidden');
+                ui.actionContainer.classList.remove('hidden');
+                ui.resultsSection.classList.add('hidden');
+            };
             reader.readAsDataURL(file);
         }
-    }
+    });
 
-    async function processImage() {
-        // Verifica se a imagem já carregou completamente no navegador
-        if (!elements.imagePreview.complete) {
-            alert("Aguarde a imagem carregar totalmente.");
-            return;
+    ui.btnProcess.addEventListener('click', () => {
+        if (!ui.preview.complete) return;
+        
+        try {
+            const rgbColors = colorThief.getPalette(ui.preview, 5);
+            currentPalette = rgbColors.map(rgb => 
+                "#" + rgb.map(x => x.toString(16).padStart(2, '0')).join('')
+            );
+            
+            ui.paletteGrid.innerHTML = '';
+            currentPalette.forEach(hex => {
+                const div = document.createElement('div');
+                div.className = "h-24 rounded-lg shadow-md cursor-pointer hover:scale-105 transition transform";
+                div.style.backgroundColor = hex;
+                div.title = hex;
+                div.onclick = () => { navigator.clipboard.writeText(hex); alert('Copiado: ' + hex); };
+                ui.paletteGrid.appendChild(div);
+            });
+            ui.resultsSection.classList.remove('hidden');
+            ui.resultsSection.scrollIntoView({ behavior: 'smooth' });
+
+        } catch (error) {
+            alert('Erro ao processar imagem.');
+        }
+    });
+
+    // --- 3. LÓGICA DE SALVAR (ATUALIZADA PARA SUAS DTOs) ---
+    ui.btnSave.addEventListener('click', async () => {
+        
+        if (!currentUser || !currentUser.id) {
+            showLoginModal();
+            return; 
         }
 
-        toggleLoadingState(true);
+        ui.btnSave.innerText = "Salvando...";
+        ui.btnSave.disabled = true;
 
-        // Pequeno delay para a UI atualizar e mostrar o spinner
-        setTimeout(() => {
-            try {
-                // --- LÓGICA REAL DE EXTRAÇÃO ---
-                
-                // 1. Pede ao ColorThief 5 cores (o número 5 é a quantidade)
-                const coresRGB = colorThief.getPalette(elements.imagePreview, 5);
-                
-                // 2. Converte de RGB [[r,g,b], [r,g,b]...] para HEX ["#...", "#..."]
-                const coresHex = coresRGB.map(rgb => rgbToHex(rgb[0], rgb[1], rgb[2]));
+        try {
+            // A. Cria CHAT
+            // DTO espera: { usuario_id: Long }
+            console.log("Criando Chat...");
+            const chatRes = await fetch(`${API_URL}/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    usuario_id: currentUser.id 
+                })
+            });
+            
+            if (!chatRes.ok) throw new Error("Falha ao criar Chat");
+            const chat = await chatRes.json();
+            const chatIdGerado = chat.id;
 
-                // 3. Renderiza na tela
-                renderPalette(coresHex);
+            // B. Cria IMAGEM
+            // DTO espera: { chatId: Long, path: String }
+            console.log("Criando Imagem vinculada ao Chat ID:", chatIdGerado);
+            const imgRes = await fetch(`${API_URL}/imagem`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    path: selectedFile.name, // Usando 'path' conforme DTO
+                    chatId: chatIdGerado     // Usando 'chatId' camelCase conforme DTO
+                })
+            });
 
-            } catch (error) {
-                console.error(error);
-                alert("Não foi possível extrair as cores desta imagem.");
-            } finally {
-                toggleLoadingState(false);
-            }
-        }, 100); // 100ms só para garantir que o spinner apareça
-    }
+            if (!imgRes.ok) throw new Error("Falha ao salvar Imagem");
+            const imagem = await imgRes.json();
+            const imagemIdGerado = imagem.id;
 
-    // --- FUNÇÕES AUXILIARES ---
+            // C. Salva CORES
+            // DTO espera: { imagem_id: Long, hexcode: String }
+            // IMPORTANTE: Agora vinculamos a cor à IMAGEM, e não ao Chat
+            console.log("Salvando cores vinculadas à Imagem ID:", imagemIdGerado);
+            
+            const promises = currentPalette.map(hex => 
+                fetch(`${API_URL}/cor`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        hexcode: hex,          // Conforme DTO
+                        imagem_id: imagemIdGerado // Conforme DTO (snake_case)
+                    })
+                })
+            );
+            await Promise.all(promises);
 
-    // Converte (r, g, b) para string Hexadecimal (#RRGGBB)
-    function rgbToHex(r, g, b) {
-        return "#" + [r, g, b].map(x => {
-            const hex = x.toString(16);
-            return hex.length === 1 ? '0' + hex : hex;
-        }).join('');
-    }
+            alert("✅ Projeto salvo com sucesso!");
 
-    function toggleLoadingState(isLoading) {
-        elements.btnProcess.disabled = isLoading;
-        if (isLoading) {
-            elements.btnText.textContent = "Processando...";
-            elements.loadingSpinner.classList.remove('hidden');
-        } else {
-            elements.btnText.textContent = "Gerar Paleta";
-            elements.loadingSpinner.classList.add('hidden');
+        } catch (error) {
+            console.error(error);
+            alert("❌ Erro ao salvar. Verifique o console (F12).");
+        } finally {
+            ui.btnSave.innerText = "Salvar no Banco";
+            ui.btnSave.disabled = false;
         }
-    }
+    });
 
-    function renderPalette(colors) {
-        elements.paletteGrid.innerHTML = ''; 
-        
-        colors.forEach(hex => {
-            const card = createColorCard(hex);
-            elements.paletteGrid.appendChild(card);
-        });
-
-        elements.resultsSection.classList.remove('hidden');
-        elements.resultsSection.scrollIntoView({ behavior: 'smooth' });
-    }
-
-    function createColorCard(hex) {
-        const card = document.createElement('div');
-        card.className = "group cursor-pointer flex flex-col gap-2";
-        
-        card.addEventListener('click', () => copyColorToClipboard(hex));
-
-        card.innerHTML = `
-            <div class="h-28 w-full rounded-lg shadow-sm transition-transform transform group-hover:scale-105 relative overflow-hidden" style="background-color: ${hex};">
-                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all flex items-center justify-center">
-                    <span class="text-white opacity-0 group-hover:opacity-100 font-bold text-sm">Copiar</span>
-                </div>
-            </div>
-            <div class="flex justify-between items-center px-1">
-                <span class="text-slate-600 font-mono font-medium text-sm">${hex}</span>
-            </div>
-        `;
-        return card;
-    }
-
-    function copyColorToClipboard(hex) {
-        navigator.clipboard.writeText(hex).then(() => {
-            console.log(`Copiado: ${hex}`);
-            // Feedback simples trocando o texto do título temporariamente
-            const originalTitle = document.querySelector('h2').innerText;
-            document.querySelector('h2').innerText = `Copiado: ${hex}!`;
-            setTimeout(() => document.querySelector('h2').innerText = originalTitle, 1500);
-        });
-    }
+    updateAuthUI();
 });
